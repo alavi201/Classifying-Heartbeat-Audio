@@ -1,84 +1,14 @@
-import glob
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
 import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
-import librosa
-import librosa.display
 import tensorflow as tf
 from sklearn.metrics import precision_recall_fscore_support
-from labels import new_labels
+import data_extraction
 
-def load_sound_files(file_paths):
-    raw_sounds = []
-    for fp in file_paths:
-        X, sr = librosa.load("heartbeat-sounds/set_a/"+fp)
-        raw_sounds.append(X)
-        #raw_sounds.append(sr)
-    return raw_sounds
-
-
-def extract_feature(file_name):
-    #print(file_name)
-    X, sample_rate = librosa.load(file_name)
-    stft = np.abs(librosa.stft(X))
-    mfccs = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
-    chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
-    mel = np.mean(librosa.feature.melspectrogram(X, sr=sample_rate).T,axis=0)
-    contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate).T,axis=0)
-    tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X),
-    sr=sample_rate).T,axis=0)
-    return mfccs,chroma,mel,contrast,tonnetz
-
-def parse_audio_files(parent_dir,sub_dirs,new_labels, file_ext="*.wav"):
-    features, labels = np.empty((0,193)), np.empty(0)
-
-    heartbeats = {"artifact" :0 ,"normal":1,"extrahls":1, "murmur":2}
-
-    for label, sub_dir in enumerate(sub_dirs):
-        for fn in glob.glob(os.path.join(parent_dir, sub_dir, file_ext)):
-
-            filename = fn.split('/')[2]
-
-            label = new_labels[filename]
-
-            try:
-              mfccs, chroma, mel, contrast,tonnetz = extract_feature(fn)
-            except Exception as e:
-              print("Error encountered while parsing file: ", fn)
-              continue
-            ext_features = np.hstack([mfccs,chroma,mel,contrast,tonnetz])
-            features = np.vstack([features,ext_features])
-            labels = np.append(labels, label)
-    return np.array(features), np.array(labels, dtype = np.int)
-
-def one_hot_encode(labels):
-    n_labels = len(labels)
-    n_unique_labels = len(np.unique(labels))
-    one_hot_encode = np.zeros((n_labels,n_unique_labels))
-    one_hot_encode[np.arange(n_labels), labels] = 1
-    return one_hot_encode
-
-
-parent_dir = "heartbeat-sounds"
-tr_sub_dirs = ["set_a_training"]
-ts_sub_dirs = ["set_a_testing"]
-
-def classify():
-
-    tr_features, tr_labels = parse_audio_files(parent_dir,tr_sub_dirs, new_labels)
-    ts_features, ts_labels = parse_audio_files(parent_dir,ts_sub_dirs, new_labels)
-    #print(tr_labels)
-    #print ('-----------------------------')
-    tr_labels = one_hot_encode(tr_labels)
-    ts_labels = one_hot_encode(ts_labels)
-    #print(tr_features[0])
-
-    #print(tr_labels)
-
-
+def classify(tr_features, tr_labels, ts_features, ts_labels):
     training_epochs = 500
     n_dim = tr_features.shape[1]
     n_classes = 3
@@ -136,4 +66,6 @@ def classify():
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average="micro")
     print("F-Score:", round(f, 3))
 
-classify()
+tr_features, tr_labels, ts_features, ts_labels = data_extraction.get_features_labels('heartbeat-sounds','set_a_training','set_a_testing', 'set_a.csv')
+
+classify(tr_features, tr_labels, ts_features, ts_labels)
