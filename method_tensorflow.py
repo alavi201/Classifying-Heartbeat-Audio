@@ -1,3 +1,5 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
@@ -45,12 +47,15 @@ def classify(tr_features, tr_labels, ts_features, ts_labels):
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     cost_history = np.empty(shape=[1], dtype=float)
+    accuracy_history = np.empty(shape=[1], dtype=float)
     y_true, y_pred = None, None
     with tf.Session() as sess:
         sess.run(init)
         for epoch in range(training_epochs):
             _, cost = sess.run([optimizer, cost_function], feed_dict={X: tr_features, Y: tr_labels})
+            epoch_accuracy = sess.run(accuracy,feed_dict={X: tr_features, Y: tr_labels})
             cost_history = np.append(cost_history, cost)
+            accuracy_history = np.append(accuracy_history, epoch_accuracy)
             print("Epoch "+str(epoch)+"/"+str(training_epochs)+", Cost: "+str(cost))
 
         y_pred = sess.run(tf.argmax(y_, 1), feed_dict={X: ts_features})
@@ -59,13 +64,19 @@ def classify(tr_features, tr_labels, ts_features, ts_labels):
                                                    feed_dict={X: ts_features, Y: ts_labels}), 3))
 
     fig = plt.figure(figsize=(10, 8))
-    plt.plot(cost_history)
+    ax = fig.add_subplot(111)
+    fig.subplots_adjust(top=0.85)
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('Value')
+    plt.plot(cost_history, label="Cost")
+    plt.plot(accuracy_history, label="Accuracy")
     plt.axis([0, training_epochs, 0, np.max(cost_history)])
+    plt.legend(loc="best")
     plt.show()
 
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average="micro")
     print("F-Score:", round(f, 3))
 
-tr_features, tr_labels, ts_features, ts_labels = data_extraction.get_features_labels('heartbeat-sounds','set_a_training','set_a_testing', 'set_a.csv')
+tr_features, tr_labels, ts_features, ts_labels = data_extraction.get_features_labels('heartbeat-sounds','set_a_training','set_a_testing', 'set_a.csv',1)
 
 classify(tr_features, tr_labels, ts_features, ts_labels)
