@@ -14,12 +14,15 @@ from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
 from keras.utils import np_utils
 from keras.regularizers import l2
-from labels import label_array
+import labels
+import wavelet_transformation
+
 INPUT_LIB = 'heartbeat-sounds/'
-SAMPLE_RATE = 44100
-CLASSES = ['artifact', 'normal', 'murmur']
-CODE_BOOK = {x:i for i,x in enumerate(CLASSES)}
-NB_CLASSES = len(CLASSES)
+SAMPLE_RATE = 4000
+CSV = 'set_a.csv'
+DATASET = 'set_a/'
+
+new_labels,label_array = labels.read_labels(CSV)
 
 def clean_filename(fname, string):
     file_name = fname.split('/')[1]
@@ -27,9 +30,13 @@ def clean_filename(fname, string):
         file_name = string + file_name
     return file_name
 
-def load_wav_file(name, path):
+def load_wav_file(name, path, wavelet_transform=1):
+    print(path + name)
     _, b = wavfile.read(path + name)
-    assert _ == SAMPLE_RATE
+    #print(_)
+    #assert _ == SAMPLE_RATE
+    if wavelet_transform == 1:
+        b= wavelet_transformation.wavelet_transformation(b)
     return b
 
 def repeat_to_length(arr, length):
@@ -66,10 +73,10 @@ def get_me_my_model():
     model.add(Dense(3, activation='softmax'))
     return model
 
-df = pd.read_csv(INPUT_LIB + 'set_a.csv')
+df = pd.read_csv(INPUT_LIB + CSV)
 df['fname'] = df['fname'].apply(clean_filename, string='Aunlabelledtest')
 df['label'].fillna('unclassified')
-df['time_series'] = df['fname'].apply(load_wav_file, path=INPUT_LIB + 'set_a/')
+df['time_series'] = df['fname'].apply(load_wav_file, path=INPUT_LIB +  DATASET)
 df['len_series'] = df['time_series'].apply(len)
 MAX_LEN = max(df['len_series'])
 df['time_series'] = df['time_series'].apply(repeat_to_length, length=MAX_LEN)
@@ -145,10 +152,23 @@ hist = model.fit_generator(batch_generator(x_train, y_train, 8),
 
 model.load_weights('set_a_weights.h5')
 
-plt.plot(hist.history['loss'], color='b')
-plt.plot(hist.history['val_loss'], color='r')
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111)
+fig.subplots_adjust(top=0.85)
+ax.set_xlabel('Epochs')
+ax.set_ylabel('Error')
+plt.plot(hist.history['loss'], color='b', label="Training")
+plt.plot(hist.history['val_loss'], color='r', label="Cross Validation")
+plt.legend(loc="best")
 plt.show()
-plt.plot(hist.history['acc'], color='b')
-plt.plot(hist.history['val_acc'], color='r')
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111)
+fig.subplots_adjust(top=0.85)
+ax.set_xlabel('Epochs')
+ax.set_ylabel('Accuracy')
+plt.plot(hist.history['acc'], color='b', label="Training")
+plt.plot(hist.history['val_acc'], color='r', label="Cross Validation")
+plt.legend(loc="best")
 plt.show()
 
