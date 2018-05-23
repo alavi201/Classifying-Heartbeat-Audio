@@ -1,6 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import os
+import sys
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
 import matplotlib as mpl
@@ -34,12 +35,10 @@ def classify(tr_features, tr_labels, ts_features, ts_labels):
     b = tf.Variable(tf.random_normal([n_classes], mean = 0, stddev=sd))
     y_ = tf.nn.softmax(tf.matmul(h_2,W) + b)
 
-    #cost_function = -tf.reduce_mean(Y * tf.log(y_) + (1 - Y) * tf.log(1 - y_))
-    cost_function = tf.reduce_mean(-tf.reduce_sum(Y * tf.log(y_), reduction_indices=[1]))
-    #cost_function = tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=y_)
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost_function)
-    #cost_function = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=Y) )
-    #optimizer = tf.train.AdamOptimizer().minimize(cost_function)
+    #cost_function = tf.reduce_mean(-tf.reduce_sum(Y * tf.log(y_), reduction_indices=[1]))
+    #optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost_function)
+    cost_function = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=Y) )
+    optimizer = tf.train.AdamOptimizer().minimize(cost_function)
 
     init = tf.global_variables_initializer()
 
@@ -56,7 +55,7 @@ def classify(tr_features, tr_labels, ts_features, ts_labels):
             epoch_accuracy = sess.run(accuracy,feed_dict={X: tr_features, Y: tr_labels})
             cost_history = np.append(cost_history, cost)
             accuracy_history = np.append(accuracy_history, epoch_accuracy)
-            print("Epoch "+str(epoch)+"/"+str(training_epochs)+", Cost: "+str(cost))
+            print("Epoch "+str(epoch)+"/"+str(training_epochs)+", Cost: "+str(cost)+", Accuracy: "+str(epoch_accuracy))
 
         y_pred = sess.run(tf.argmax(y_, 1), feed_dict={X: ts_features})
         y_true = sess.run(tf.argmax(ts_labels, 1))
@@ -72,11 +71,15 @@ def classify(tr_features, tr_labels, ts_features, ts_labels):
     plt.plot(accuracy_history, label="Accuracy")
     plt.axis([0, training_epochs, 0, np.max(cost_history)])
     plt.legend(loc="best")
+    plt.title('Adam ')
     plt.show()
 
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average="micro")
     print("F-Score:", round(f, 3))
 
-tr_features, tr_labels, ts_features, ts_labels = data_extraction.get_features_labels('heartbeat-sounds','set_a_training','set_a_testing', 'set_a.csv',1)
+directory = 'set_'+sys.argv[1]
+wavelet_transform = int(sys.argv[2])
+
+tr_features, tr_labels, ts_features, ts_labels = data_extraction.get_features_labels(directory, wavelet_transform)
 
 classify(tr_features, tr_labels, ts_features, ts_labels)

@@ -56,7 +56,16 @@ def one_hot_encode(labels):
     one_hot_encode[np.arange(n_labels), labels] = 1
     return one_hot_encode
 
-def get_features_labels(parent_dir,training_set, testing_set, CSV, wavelet_transform=0):
+def get_features_labels(data_set,wavelet_transform=0):
+
+    parent_dir = 'heartbeat-sounds'
+    training_set = data_set+'_training'
+    testing_set = data_set+'_testing'
+    CSV = data_set+'.csv'
+
+    if wavelet_transform == 1:
+        print('Performing Wavelet Transformation')
+
     tr_sub_dirs = [training_set]
     ts_sub_dirs = [testing_set]
     new_labels, label_array = labels.read_labels(CSV)

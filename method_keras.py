@@ -1,4 +1,7 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import os
+import sys
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
 from scipy.io import wavfile
@@ -17,10 +20,13 @@ from keras.regularizers import l2
 import labels
 import wavelet_transformation
 
+directory = 'set_'+sys.argv[1]
+wavelet_transform = int(sys.argv[2])
+
 INPUT_LIB = 'heartbeat-sounds/'
 SAMPLE_RATE = 4000
-CSV = 'set_a.csv'
-DATASET = 'set_a/'
+CSV = directory+'.csv'
+DATASET = directory+'/'
 
 new_labels,label_array = labels.read_labels(CSV)
 
@@ -31,13 +37,12 @@ def clean_filename(fname, string):
     return file_name
 
 def load_wav_file(name, path, wavelet_transform=1):
-    print(path + name)
-    _, b = wavfile.read(path + name)
+    _, audio_data = wavfile.read(path + name)
     #print(_)
     #assert _ == SAMPLE_RATE
     if wavelet_transform == 1:
-        b= wavelet_transformation.wavelet_transformation(b)
-    return b
+        audio_data = wavelet_transformation.wavelet_transformation(audio_data)
+    return audio_data
 
 def repeat_to_length(arr, length):
     """Repeats the numpy 1D array to given length, and makes datatype float"""
@@ -76,7 +81,7 @@ def get_me_my_model():
 df = pd.read_csv(INPUT_LIB + CSV)
 df['fname'] = df['fname'].apply(clean_filename, string='Aunlabelledtest')
 df['label'].fillna('unclassified')
-df['time_series'] = df['fname'].apply(load_wav_file, path=INPUT_LIB +  DATASET)
+df['time_series'] = df['fname'].apply(load_wav_file, path=INPUT_LIB +  DATASET, wavelet_transform=wavelet_transform)
 df['len_series'] = df['time_series'].apply(len)
 MAX_LEN = max(df['len_series'])
 df['time_series'] = df['time_series'].apply(repeat_to_length, length=MAX_LEN)
@@ -86,20 +91,9 @@ x_data = np.stack(df['time_series'].values, axis=0)
 new_labels = np.array(label_array, dtype='int')
 y_data = np_utils.to_categorical(new_labels)
 
-print(df['fname'].values)
-print(y_data)
-print(x_data)
-
-#sys.exit()
 
 x_train, x_test, y_train, y_test, train_filenames, test_filenames = \
     train_test_split(x_data, y_data, df['fname'].values, test_size=0.3)
-
-
-print(train_filenames)
-print(y_train)
-print(x_train)
-#print(test_filenames)
 
 #sys.exit()
 
@@ -151,6 +145,9 @@ hist = model.fit_generator(batch_generator(x_train, y_train, 8),
                    verbose=2)
 
 model.load_weights('set_a_weights.h5')
+
+#for i in range(len(model.metrics_names)):
+#print(str(model.metrics))
 
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
